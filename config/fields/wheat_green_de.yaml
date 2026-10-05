@@ -1,0 +1,17 @@
+# The same field in late May: winter wheat heading, still green (BBCH ~55), ~0.75 m.
+# Everything not listed here comes from the ripe field (same layout, seed, surroundings).
+extends: wheat_ripe_de.yaml
+
+field:
+  stage: green
+  height_scale: [1.3, 1.5]   # pack clumps are 0.52-0.54 m -> 0.7-0.8 m
+  lean_deg: 4
+  wind_lean_deg: 2
+  tint: [0.95, 1.0, 0.92]    # slightly less saturated than the pack's textures
+  lodging: {count: 0, radius_m: [2.0, 6.0], lean_deg: [50, 80]}   # lodging comes with the heavy ears
+
+parcels:
+  kinds: [wheat_green, soil, meadow, rapeseed_green, maize_young]
+
+sky:
+  hdri: kloppenheim_05

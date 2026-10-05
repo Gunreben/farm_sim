@@ -1,0 +1,7 @@
+assets/robot/*.usd
+assets/polyhaven/
+assets/crops/
+assets/actors/
+out/
+__pycache__/
+*.pyc

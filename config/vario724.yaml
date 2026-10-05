@@ -1,0 +1,118 @@
+# Fendt 724 Vario + Smart Farming Lab sensor rig.
+#
+# Geometry, sensor extrinsics and meshes come from the vario700_sensorrig package; this file
+# only adds what the URDF does not carry (vehicle dynamics, sensor models, ROS topics).
+# Values marked "estimate" are public spec-sheet figures or engineering guesses, not measurements.
+
+robot:
+  description_pkg: ~/ros2_ws/src/vario700_sensorrig
+  # Calibration source selects urdf/vario700_sensorrig_<calibration>.urdf for all sensor extrinsics.
+  # msa_new = mounting after 2025-09-27 (see the package README).
+  calibration: msa_new
+  # Visual meshes are taken from meshes/painted/ when a painted copy exists.
+  prefer_painted_meshes: true
+  usd_out: assets/robot/vario724.usd
+
+vehicle:
+  # From the URDF: wheelbase 2.782 m (spec sheet: 2.783 m), track 1.86-1.87 m.
+  forward_axis: +y            # base_link convention of the URDF (+Y forward, +Z up)
+  mass_kg: 8600               # estimate: ~8,300 kg empty weight + sensor rig + fuel
+  front_axle_load_ratio: 0.45 # estimate
+  com_height_m: 1.15          # above ground, estimate
+  wheels:
+    # Rear radius from the wheel mesh (710/70R42-ish). The URDF wheel centres and the front mesh
+    # radius (0.755 m) would pitch base_link ~1.7 deg nose-down. Sensor poses matter more than tyre
+    # size here, so front radius "auto" keeps base_link level on flat ground and the front wheel
+    # visuals are scaled to that radius.
+    front: {radius_m: auto, width_m: 0.60, mass_kg: 350, suspension_travel_m: 0.10, damping_ratio: 0.45}
+    rear:  {radius_m: 1.050, width_m: 0.71, mass_kg: 600, suspension_travel_m: 0.06, damping_ratio: 0.35}
+  tire:
+    lateral_stiffness_per_load: 12.0   # [1/rad] x rest load
+    longitudinal_stiffness_per_load: 12.0
+  steering:
+    max_angle_deg: 52.0       # inner front wheel at full lock, estimate for the 700 Vario front axle
+    ackermann_strength: 1.0
+    # VarioActive superimposed steering: faster steering below 18 km/h.
+    lock_to_lock_s_slow: 0.9
+    lock_to_lock_s_fast: 2.4
+    vario_active_limit_kmh: 18.0
+    # Caster self-centering, normalised steer units per second per m/s of speed.
+    self_center_gain: 0.06
+  drivetrain:
+    # Vario CVT driven like the Fendt joystick: W/S change the speed setpoint, releasing holds it.
+    max_speed_fwd_kmh: 50.0
+    max_speed_rev_kmh: 38.0
+    engine_power_kw: 174.0    # 724 Vario rated power (237 hp), estimate
+    max_tractive_force_kn: 62.0
+    setpoint_accel_mps2: 1.2  # how fast holding W raises the speed setpoint
+    setpoint_decel_mps2: 2.0
+    emergency_decel_mps2: 5.0
+    speed_kp: 1.2             # [1/s] speed-error -> acceleration demand
+    torque_split_front: 0.40  # permanent 4WD, share of drive torque on the front axle
+    max_brake_torque_nm: 16000  # per wheel
+  ground_friction: 0.85       # dry field / grass, tire-ground friction coefficient
+
+sensors:
+  lidar:
+    link: os_lidar
+    asset_variant: OS0_REV7_128ch10hz512res   # matches the real OS0-128 rev7, 10 Hz, 512 columns
+    frame_id: os_lidar
+    points_topic: /ouster/points
+    imu_link: os_imu
+    imu_topic: /ouster/imu
+    imu_rate_hz: 100
+  # The tractor/rig visual meshes do not match the real mounting and block the sensor cameras' views
+  # (the real cameras see clear ground). Hidden from camera rays, shadows kept. This also hides the
+  # tractor in the GUI viewport: press T to toggle.
+  hide_vehicle_from_cameras: true
+  # Intrinsics come from the real rig's calibration files:
+  #   <dir>/<set>/<calib>.intrinsics.yaml  (set defaults to robot.calibration; top-level <dir> if absent)
+  camera_calibration:
+    dir: ~/ros2_ws/src/tractor_multi_cam_publisher/calibration
+    set: null
+  # Topics and frames as the real drivers publish them (tractor_multi_cam_publisher, ZED wrapper).
+  # ArkCams (equidistant / Kannala-Brandt): the calibrated camera_<label> links are already optical
+  # frames (z forward, y down); the URDF's extra *_optical_frame rotation is not applied.
+  # ZED: raw (unrectified) left/right as in the MSA calibration, rational_polynomial.
+  cameras:
+    - {name: rear_mid,   link: camera_rear_mid,   calib: camera_rear_mid,   rate_hz: 15,
+       topic: /camera/rear_mid/image_raw,   info_topic: /camera/rear_mid/image_raw/camera_info}
+    - {name: rear_right, link: camera_rear_right, calib: camera_rear_right, rate_hz: 15,
+       topic: /camera/rear_right/image_raw, info_topic: /camera/rear_right/image_raw/camera_info}
+    - {name: side_right, link: camera_side_right, calib: camera_side_right, rate_hz: 15,
+       topic: /camera/side_right/image_raw, info_topic: /camera/side_right/image_raw/camera_info}
+    - {name: rear_left,  link: camera_rear_left,  calib: camera_rear_left,  rate_hz: 15,
+       topic: /camera/rear_left/image_raw,  info_topic: /camera/rear_left/image_raw/camera_info}
+    - {name: side_left,  link: camera_side_left,  calib: camera_side_left,  rate_hz: 15,
+       topic: /camera/side_left/image_raw,  info_topic: /camera/side_left/image_raw/camera_info}
+    - {name: zed_left,  link: zed_left_camera_optical_frame,  calib: zed_zed_node_left_raw_color,  rate_hz: 15,
+       topic: /zed/zed_node/left_raw/image_raw_color,  info_topic: /zed/zed_node/left_raw/camera_info}
+    - {name: zed_right, link: zed_right_camera_optical_frame, calib: zed_zed_node_right_raw_color, rate_hz: 15,
+       topic: /zed/zed_node/right_raw/image_raw_color, info_topic: /zed/zed_node/right_raw/camera_info}
+  zed:
+    imu_link: zed_imu_link
+    imu_topic: /zed/zed_node/imu/data
+    imu_rate_hz: 200
+
+  # Simulation-only ground truth (not on the real rig), see farm_sim/ground_truth.py:
+  #   /gt/objects                  vision_msgs/Detection3DArray, all scenario actors (base_link)
+  #   /gt/<camera>/detections_2d   vision_msgs/Detection2DArray, score = visible fraction of the box
+  #   /ouster/object_id_map        std_msgs/String (JSON id -> prim path) for the ObjectId point field
+  ground_truth:
+    cameras: [zed_left]            # any names from sensors.cameras
+    max_range_m: 120
+    min_visibility: 0.0            # drop 2D boxes that are more hidden than this
+    lidar_object_ids: false        # true: ObjectId point field + map; needs renderer stable ids, which cost ~10x frame time in the full field (4.5M ids)
+    # Replicator images under /gt/<camera>/<type>, any of: depth semantic_segmentation
+    # instance_segmentation bbox_2d_tight bbox_3d. Costs in the full wheat field (0.61x real time
+    # without): depth free, semantic 0.28x, instance/bbox_* <0.05x -- they walk all 1.5M plant
+    # instances on the CPU every frame. Fine in the small test field.
+    images: []
+
+ros:
+  odom_topic: /odom
+  odom_frame: odom
+  base_frame: base_link
+  # The rig TF (base_link -> sensors) is published by robot_state_publisher from the same URDF,
+  # see scripts/rig_tf.sh. The simulator only publishes odom -> base_link and /clock.
+  publish_rig_tf: false

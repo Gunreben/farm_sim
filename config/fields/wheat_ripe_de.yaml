@@ -1,0 +1,83 @@
+# Ripe winter wheat in July, central Germany. Coordinates: x = across the rows, y = along the rows
+# (sowing direction), z up, origin = south-west corner of the field. Everything is seeded.
+seed: 7
+
+terrain:
+  inner_size_m: 900          # fine mesh (1 m grid) around the field
+  inner_grid_m: 1.0
+  outer_size_m: 6000         # coarse ring out to the horizon
+  outer_grid_m: 30.0
+  relief: {amplitude_m: 4.0, wavelength_m: 450, octaves: 4}   # gently rolling
+  micro: {amplitude_m: 0.04, wavelength_m: 3.0, octaves: 2}   # clods / unevenness
+
+field:
+  size_m: [180, 320]         # width (across rows), length (along rows)
+  headland_m: 24             # Vorgewende = one sprayer width, sown crosswise
+  crop: wheat
+  stage: ripe                # ripe | green | young
+  row_spacing_m: 0.25        # rendering rows (the drill's 12.5 cm rows are inside each clump)
+  plant_spacing_m: 0.22      # mean along-row distance between clumps
+  height_scale: [1.35, 1.6]  # pack clumps are 0.56-0.64 m -> 0.8-1.0 m winter wheat
+  lean_deg: 6                # random lean, plus a wind bias
+  wind_dir_deg: 60
+  wind_lean_deg: 4
+  green_fraction: 0.03       # a few late tillers
+  tint: [1.0, 0.93, 0.8]     # albedo multiplier: the pack's ripe textures are quite orange
+  tramlines:
+    spacing_m: 24            # 24 m sprayer
+    first_offset_m: 12
+    gauge_m: 1.86            # track width of the tractor (same as the Vario)
+    track_width_m: 0.45
+  gaps:    {count: 25, radius_m: [0.8, 3.5]}      # poor emergence / wet spots
+  lodging: {count: 6, radius_m: [2.0, 6.0], lean_deg: [50, 80]}
+  weeds:   {per_m2: 0.08}                        # scattered weeds inside the crop
+  edge_thinning_m: 1.0       # sparser plants at the field border
+
+margin:                      # Feldrain between field and track
+  width_m: 2.5
+  grass_per_m2: 40
+  flowers_per_m2: 2.5
+
+track:                       # Feldweg along the west and south side
+  sides: [west, south]
+  width_m: 3.5
+  centre_grass_m: 0.8
+
+hedgerow:                    # east side: shrubs + trees
+  side: east
+  offset_m: 5
+  tree_spacing_m: [9, 16]
+  shrub_spacing_m: [1.5, 3.5]
+
+tree_row:                    # along the track (Alleebäume)
+  side: west
+  offset_m: 6
+  spacing_m: [12, 18]
+
+forest:                      # forest edge to the north
+  distance_m: 140
+  depth_m: 60
+  width_m: 500
+  trees_per_ha: 180
+
+parcels:                     # neighbouring fields (patchwork) out to the horizon
+  size_m: [150, 350]
+  kinds: [wheat, stubble, meadow, soil, rapeseed_green, maize_green]
+
+wind_turbines:
+  count: 6
+  distance_m: [1400, 2600]
+  hub_height_m: 120
+  rotor_diameter_m: 115
+
+sky:
+  hdri: kloppenheim_05
+  hdri_intensity: 1.0
+  # haze: RTX fog also whitens the sky dome, so only use it with misty HDRIs (e.g. kloppenheim_01):
+  #   {color: [0.8, 0.82, 0.85], start_m: 60, end_m: 1500, density: 0.8}
+  haze: null
+
+robot_start:                 # where tramline 1 meets the headland tramline, facing along the rows
+  tramline: 1
+  y_m: 12
+  yaw_deg: 0

@@ -1,0 +1,56 @@
+# Actor catalog: what can be spawned by a scenario. `class` becomes the semantic label.
+# kind: person  -> Isaac character driven by omni.anim.behavior (walk / idle / look / fall)
+#       animal  -> rigged or static USD, idle animation plays with the timeline
+#       vehicle -> static USD, optionally moved kinematically along a path
+#       static  -> static obstacle
+# Paths: "isaac:" = NVIDIA asset server, "polyhaven:<model>" = downloaded CC0 model, else repo-relative.
+
+person:
+  kind: person
+  class: person
+  characters:   # all share the "Human" rig of the motion library
+    - isaac:Isaac/People/Characters/male_adult_construction_01_new/male_adult_construction_01_new.usd
+    - isaac:Isaac/People/Characters/male_adult_construction_03/male_adult_construction_03.usd
+    - isaac:Isaac/People/Characters/male_adult_construction_05_new/male_adult_construction_05_new.usd
+    - isaac:Isaac/People/Characters/female_adult_police_02/female_adult_police_02.usd
+    - isaac:Isaac/People/Characters/male_adult_police_04/male_adult_police_04.usd
+
+deer:          # placeholder until the Fab roe deer arrives (stick asset, 2.4k polys, idle clip)
+  kind: animal
+  class: deer
+  usd: assets/actors/deer/deer.usd
+  credit: "deer.fbx (source/licence unknown, from the lab's asset stick)"
+
+cow:
+  kind: animal
+  class: cow
+  usd: assets/actors/cow/cow.usd
+  credit: "cow.obj (source/licence unknown, from the lab's asset stick)"
+
+tractor_trailer:
+  kind: vehicle
+  class: vehicle
+  usd: assets/actors/tractor_trailer/tractor_trailer.usd
+  credit: "New Holland T7 tractor (lab asset stick, Sketchfab)"
+
+round_bale:
+  kind: static
+  class: bale
+  usd: assets/actors/round_bale_single/round_bale_single.usd
+  credit: "haystack_1 (Sketchfab, CC-BY-4.0, see assets/actors/*/license.txt)"
+
+bales:
+  kind: static
+  class: bale
+  usd: assets/actors/bales_mixed/bales_mixed.usd
+  credit: "hay_bales (Sketchfab, CC-BY-4.0)"
+
+boulder:
+  kind: static
+  class: rock
+  usd: polyhaven:boulder_01
+
+stump:
+  kind: static
+  class: stump
+  usd: polyhaven:tree_stump_01

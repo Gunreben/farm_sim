@@ -1,0 +1,16 @@
+# The same field in April: winter wheat tillering / stem elongation (BBCH ~30), ~0.3 m. People
+# and animals are fully visible over the crop, the tramlines are wide open soil.
+extends: wheat_ripe_de.yaml
+
+field:
+  stage: young
+  height_scale: [0.9, 1.2]   # pack clumps are 0.23-0.40 m
+  plant_spacing_m: 0.18
+  lean_deg: 3
+  wind_lean_deg: 1
+  tint: [0.95, 1.0, 0.92]
+  lodging: {count: 0, radius_m: [2.0, 6.0], lean_deg: [50, 80]}
+  gaps: {count: 40, radius_m: [0.5, 2.5]}
+
+parcels:
+  kinds: [wheat_green, soil, meadow, rapeseed_green, maize_young]

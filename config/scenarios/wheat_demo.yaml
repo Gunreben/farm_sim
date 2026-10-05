@@ -1,0 +1,29 @@
+# Detection test / demo scenario in the ripe wheat field (config/fields/wheat_ripe_de.yaml).
+# Field frame: x across the rows, y along; the tractor starts on tramline 1 (x = 36) at y = 12
+# heading +y. Tramline wheel tracks are at x = 36 +- 0.93.
+field: config/fields/wheat_young_de.yaml
+seed: 11
+
+actors:
+  # someone walking down the tramline towards the tractor
+  # (yield_m: steps 2.5 m aside when the tractor is closer than 15 m, watches it pass, walks on)
+  - {type: person, behavior: walk, path: [[36.6, 140], [36.4, 40]], speed_mps: 1.2, loop: true, yield_m: 15}
+  # steps out of the crop into the tramline when the tractor is 25 m away
+  - {type: person, behavior: cross, at: [45, 75], to: [27, 76], trigger_m: 25}
+  # lying in the crop next to the tramline: the hard case
+  - {type: person, behavior: lying, at: [38.5, 160], yaw: 70}
+  # standing at the field margin, watching the tractor
+  - {type: person, behavior: idle, at: [-1.4, 55], face: robot}
+  # walking the dog-free farm track
+  - {type: person, behavior: walk, path: [[-4.8, 10], [-4.8, 300]], speed_mps: 1.4, loop: true}
+  # roe deer in the crop and at the forest edge (placeholder model)
+  - {type: deer, at: [58, 190], yaw: 250}
+  - {type: deer, at: [120, 445], yaw: 180}
+  # traffic on the south farm track
+  - {type: tractor_trailer, path: [[-150, -4.75], [260, -4.75]], speed_mps: 4.5, loop: true}
+  # static obstacles
+  - {type: round_bale, at: [98, 9], yaw: 20}
+  - {type: round_bale, at: [101.5, 7.5], yaw: 75}
+  - {type: bales, at: [-9.5, 240], yaw: 0}
+  - {type: boulder, at: [24, 96], yaw: 40, scale: 0.8}
+  - {type: stump, at: [183.5, 130], yaw: 10}

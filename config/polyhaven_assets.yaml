@@ -1,0 +1,55 @@
+# CC0 assets from Poly Haven (https://polyhaven.com), fetched by tools/fetch_polyhaven.py into
+# assets/polyhaven/. CC0 needs no attribution; tools/fetch_polyhaven.py still writes CREDITS.md.
+
+hdris:            # 4k equirectangular .hdr, mostly German / central European farmland
+  resolution: 4k
+  names:
+    - kloppenheim_05        # Hesse, midday, partly cloudy
+    - kloppenheim_03        # Hesse, midday, partly cloudy
+    - kloppenheim_01        # Hesse, sunrise, overcast + mist
+    - farmland_overcast     # crop field, overcast
+    - rural_evening_road    # wheat field, evening
+    - hochsal_field         # Baden-Wuerttemberg, clear morning
+    - steinbach_field       # sunrise, forest edge
+    - dreifaltigkeitsberg   # Swabian Jura, clear midday
+    - misty_farm_road       # overcast, fog, gravel farm track
+    - harvest               # harvested field, clear
+
+textures:         # PBR sets, 2k jpg: Diffuse, nor_gl, Rough, AO, Displacement
+  resolution: 2k
+  maps: [Diffuse, nor_gl, Rough, AO, Displacement]
+  names:
+    - farm_soil             # soil between the crop rows
+    - dry_mud_field_001     # dry field soil
+    - muddy_tracks          # tramline wheel tracks
+    - aerial_mud_1          # headland with tyre tracks
+    - brown_mud_02          # wetter soil variant
+    - grass_path_2          # farm track with grass
+    - gravel_ground_01      # gravel farm track
+    - grass_ground          # field margin / meadow
+    - leafy_grass           # verge
+
+models:           # USD, 2k textures
+  resolution: 2k
+  names:
+    - grass_medium_01
+    - grass_medium_02
+    - grass_bermuda_01
+    - dandelion_01
+    - celandine_01
+    - nettle_plant
+    - weed_plant_02
+    - shrub_01
+    - shrub_02
+    - shrub_03
+    - shrub_04
+    - shrub_sorrel_01
+    - fern_02
+    - boulder_01
+    - rock_07
+    - rock_09
+    - rock_moss_set_01
+    - stone_01
+    - tree_stump_01
+    - tree_stump_02
+    - dead_tree_trunk_02
