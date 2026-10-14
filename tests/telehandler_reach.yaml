@@ -1,0 +1,13 @@
+# Full boom range without load: 60 deg, 6 m telescope, levelled carriage, then tilt limits.
+#   python scripts/run_telehandler.py --headless --no-ros --no-sensors --no-viewport --script tests/telehandler_reach.yaml
+- implement: {boom_lift: 60, telescope: 6.0}
+- wait: 1.0
+- log: full reach
+- check: {link: carriage, min_z: 9.0}            # carriage pivot ~9.6 m (mod: 10 m lift height at the forks)
+- implement: {tool_tilt: 30}
+- implement: {tool_tilt: -120}
+- implement: {tool_tilt: 0, telescope: 0}
+- implement: {boom_lift: 0}
+- wait: 1.0
+- check: {link: carriage, max_z: 0.55}
+- check: {link: base_link, min_z: -0.05, max_z: 0.05}   # still on its wheels

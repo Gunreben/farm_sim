@@ -1,0 +1,16 @@
+# Steering modes at 20 deg virtual front angle, 2 m/s (compare the driven radius with the geometry):
+#   front: R = wheelbase / tan(20) about the rear axle; all_wheel: R = wheelbase / 2 / tan(20); crab: straight at 20 deg
+#   python scripts/run_telehandler.py --headless --no-ros --no-sensors --no-viewport --scene config/scenes/empty.yaml \
+#       --script tests/telehandler_steering.yaml --log out/steering.csv
+- steering_mode: front
+- log: front
+- drive: {speed: 2.0, distance: 18.0, steer: 20}
+- wait: 1.0
+- steering_mode: all_wheel
+- log: all_wheel
+- drive: {speed: 2.0, distance: 12.0, steer: 20}
+- wait: 1.0
+- steering_mode: crab
+- log: crab
+- drive: {speed: 2.0, distance: 8.0, steer: 20}
+- wait: 1.0

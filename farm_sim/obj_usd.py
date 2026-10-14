@@ -32,6 +32,8 @@ def parse_mtl(path: str) -> dict[str, dict]:
             cur[parts[0]] = tuple(float(v) for v in parts[1:4])
         elif cur is not None and parts[0] in ("Ns", "d"):
             cur[parts[0]] = float(parts[1])
+        elif cur is not None and parts[0] == "map_Kd":
+            cur["map_Kd"] = os.path.normpath(os.path.join(os.path.dirname(path), parts[-1]))
     return mats
 
 
@@ -89,7 +91,7 @@ def make_preview_material(stage, path: str, props: dict, name_hint: str) -> UsdS
     metallic = 0.0
     opacity = props.get("d", 1.0)
     lname = name_hint.lower()
-    if "alumin" in lname or "metal" in lname or "steel" in lname:
+    if any(h in lname for h in ("alumin", "metal", "steel", "chrome", "silver")):
         metallic, roughness = 1.0, 0.3
     if "glass" in lname:
         opacity, roughness = 0.25, 0.03
@@ -100,6 +102,19 @@ def make_preview_material(stage, path: str, props: dict, name_hint: str) -> UsdS
     shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
     if opacity < 1.0:
         shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(float(opacity))
+    if props.get("map_Kd"):
+        # textured (decals): colour from the texture, alpha as a cut-out mask
+        st = UsdShade.Shader.Define(stage, path + "/st")
+        st.CreateIdAttr("UsdPrimvarReader_float2")
+        st.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+        tex = UsdShade.Shader.Define(stage, path + "/diffuse")
+        tex.CreateIdAttr("UsdUVTexture")
+        tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(props["map_Kd"])
+        tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+        tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st.ConnectableAPI(), "result")
+        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tex.ConnectableAPI(), "rgb")
+        shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tex.ConnectableAPI(), "a")
+        shader.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.5)
     mat.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
     return mat
 

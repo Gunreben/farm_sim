@@ -1,0 +1,22 @@
+# Pick square_1 (2.0 x 1.2 x 0.9 m, 450 kg) in bale_yard and put it on the 1 m platform.
+#   python scripts/run_telehandler.py --headless --no-ros --no-sensors --script tests/telehandler_pick_place.yaml
+- log: approach
+- implement: {clamp: 1.6, boom_lift: 0, tool_tilt: 0, telescope: 0}
+- drive: {speed: 1.5, distance: 5.6}
+- log: clamp
+- implement: {clamp: 0.9}           # closes until the pads stall on the 1.2 m bale
+- wait: 0.5
+- implement: {boom_lift: 15}
+- wait: 1.0
+- check: {object: square_1, min_z: 1.2}
+- log: carry
+- drive: {speed: 2.5, distance: 11.5}
+- wait: 1.0
+- check: {object: square_1, min_z: 1.2}
+- log: set down
+- implement: {boom_lift: 12.5}
+- implement: {clamp: 1.6}
+- implement: {boom_lift: 18}
+- drive: {speed: -1.5, distance: 4.0}
+- wait: 2.0
+- check: {object: square_1, min_z: 1.35, max_z: 1.6}   # resting on the platform (top at 1.0 m)

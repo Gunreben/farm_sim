@@ -33,6 +33,7 @@ parser.add_argument("--physics-hz", type=float, default=60.0)
 parser.add_argument("--render-hz", type=float, default=30.0,
                     help="rendered frames per sim second; physics substeps in between. Rendering is the "
                          "main cost (60 -> 30: 0.56x -> 0.88x real time); IMU/odom publish per frame")
+parser.add_argument("--gpu-physics", action="store_true", help="PhysX GPU dynamics (default: CPU solver)")
 parser.add_argument("--duration", type=float, default=0.0, help="quit after N sim seconds (0 = run until closed)")
 parser.add_argument("--drive-test", default=None, metavar="CSV", help="run the scripted manoeuvre and log to CSV")
 parser.add_argument("--screenshot", default=None, metavar="DIR", help="save viewport screenshots of each view")
@@ -114,7 +115,7 @@ render_hz = min(args.render_hz, args.physics_hz)
 from isaacsim.core.rendering_manager import RenderingManager
 
 RenderingManager.set_dt(1.0 / render_hz)  # loop runner step, timeline + stage time codes, Fabric sim period
-world.setup_physics(stage, args.physics_hz)
+world.setup_physics(stage, args.physics_hz, gpu_dynamics=args.gpu_physics)
 scene = None
 if args.field:
     from farm_sim.field import generate
@@ -264,6 +265,8 @@ autodrive_x0 = None
 next_print = 0.0
 wall_next = time.perf_counter()
 step_i = 0
+rtf_t0 = rtf_wall0 = None
+slept = 0.0
 print("[farm_sim] running. Press H in the viewport for keys.", flush=True)
 while app.is_running():
     if log is not None:
@@ -294,6 +297,8 @@ while app.is_running():
             ground_truth = None
     sim_t += dt
     step_i += 1
+    if rtf_t0 is None and sim_t >= 2.0:  # after loading and the first warm-up frames
+        rtf_t0, rtf_wall0, slept = sim_t, time.perf_counter(), 0.0
     if recorder is not None and step_i % rec_every == 0 and sim_t > 1.0:
         data = recorder.get_data()
         if data is not None and len(data):
@@ -310,9 +315,14 @@ while app.is_running():
     sleep = wall_next - time.perf_counter()
     if sleep > 0:
         time.sleep(sleep)
+        slept += sleep
     else:
         wall_next = time.perf_counter()
 
+if rtf_t0 is not None and sim_t > rtf_t0:
+    wall = time.perf_counter() - rtf_wall0
+    print(f"[farm_sim] {sim_t - rtf_t0:.1f} sim s in {wall:.1f} s wall: {(sim_t - rtf_t0) / wall:.2f}x real time "
+          f"({(sim_t - rtf_t0) / (wall - slept):.2f}x unpaced)", flush=True)
 if log is not None:
     log.close()
 timeline.stop()

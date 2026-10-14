@@ -1,0 +1,8 @@
+# Empty gravel pad (driving tests).
+sky: {hdri: kloppenheim_05, sun_elevation_deg: 42, sun_azimuth_deg: 150}
+ground:
+  pad: {size: [200, 200], center: [0, 0], texture: gravel_ground_01, tile_m: 2.5}
+  surround: {texture: leafy_grass, tile_m: 3.0}
+  friction: 0.8
+start: {pose: [0, 0, 0]}
+objects: []

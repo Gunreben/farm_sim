@@ -1,0 +1,106 @@
+# Claas Scorpion 1033 telehandler + bale clamp + sensors.
+#
+# One file for the telehandler simulation:
+#   description: what tools/build_scorpion1033_description.py writes into the ROS package
+#                scorpion1033_description (URDF, meshes); rerun it after changes here.
+#   vehicle/drives: articulation dynamics in Isaac (farm_sim/telehandler/)
+#   sensors/ros: what the simulator publishes
+# Geometry of the machine comes from the FS25 mod (i3d); values marked "estimate" are
+# spec-sheet numbers or guesses.
+#
+# Frames: base_link is the mod's vehicle origin moved to ROS convention (x forward, y left,
+# z up): on the centre line, 8 cm ahead of mid-wheelbase, at ground level with the tyres at rest.
+
+description:
+  mod_dir: ~/Downloads/FS25_claasScorpion1033
+  i3d: scorpion1033.i3d
+  package_dir: ~/ros2_ws/src/scorpion1033_description
+  robot_name: scorpion1033
+  tyre: {radius_m: 0.627, width_m: 0.46, rim_radius_m: 0.305, lugs: 26}  # 460/70 R24
+  masses_kg:        # total 7425 kg in the mod (3400 chassis component + 4025 axle component), estimate split
+    base_link: 4300
+    rear_axle: 520
+    knuckle: 45
+    wheel: 160
+    boom_base: 620
+    boom_mid: 330
+    boom_tip: 210
+    carriage: 110
+    cylinder: 4     # hydraulic cylinder visuals (kinematic followers, no collision)
+  com_m:            # centres of mass from the mod's components (others: centre of the visual mesh)
+    base_link: [0.0, 0.0, 0.7]
+    rear_axle: [0.0, 0.0, 0.0]
+  joint_limits:
+    steer_deg: 35            # ackermannSteering rotMax
+    rear_axle_roll_deg: 8    # pendulum axle (component joint rotLimit)
+    boom_lift_deg: [0, 60]   # mainArm rotation -60..0 in the mod; here + = up
+    telescope_m: [0, 3]      # per stage, two stages (6 m total)
+    tool_tilt_deg: [-150, 45]  # carriage vs. boom; the levelled command is limited to [-120, 30]
+  # Bale clamp on the carriage (mod has only the quick-hitch adapter). Pads open symmetrically.
+  clamp:
+    mount_xyz: [0.481, 0.041, -0.013]   # clamp_frame in carriage: front face of the adapter plate, centred
+    mass_kg: 300
+    arm_mass_kg: 90
+    closed_half_width_m: 0.30           # pad inner face at |y| = 0.30 when fully closed
+    stroke_m: 0.75                      # per arm: opening 0.60 .. 2.10 m
+    pad: {length_m: 1.10, height_m: 0.78, x0_m: 0.40, thickness_m: 0.03}
+    beam_half_length_m: 1.20
+    max_force_n: 12000                  # per arm, hydraulic relief
+    friction: 1.0                       # rubber pads
+  # Sensor mounts (link poses as xyz + rpy in degrees, in the parent link).
+  # ZED X: stereo, 120 mm baseline; ROS frames as the ZED wrapper names them.
+  zed:
+    - {name: zed_front, parent: base_link, xyz: [0.42, 0.75, 2.52], rpy: [0, 25, 0]}   # cab roof, front edge
+    - {name: zed_tool, parent: carriage, xyz: [0.55, 0.0, 0.62], rpy: [0, 30, 0]}      # above the clamp, looks at the pads
+  # Ouster OS1-128: os_sensor is the mounting frame, the driver's os_lidar sits 36.18 mm above it, yawed 180 deg.
+  ouster:
+    - {name: ouster_cab, parent: base_link, xyz: [-0.60, 0.80, 2.62], rpy: [0, 0, 0]}  # cab roof, behind the beacon mast
+    - {name: ouster_rear, parent: base_link, xyz: [-2.45, 0.0, 2.04], rpy: [0, 0, 0]}   # on top of the rear counterweight
+
+vehicle:
+  max_speed_kmh: 40            # mod: maxSpeed 40
+  accel_mps2: 1.5
+  decel_mps2: 2.5
+  stop_decel_mps2: 5.0
+  wheel_max_torque_nm: 9000    # per wheel, ~57 kN total tractive force, estimate
+  wheel_drive_damping: 30000   # velocity drive gain [Nm s/rad]
+  steer_rate_deg_s: 40
+  steering_modes: [front, all_wheel, crab]   # M cycles; ROS /cmd_vel uses the current one
+  tyre_friction: 0.9
+  ground_friction: 0.8
+
+drives:   # PhysX joint drives (stiffness, damping, max force); hydraulic speeds from the mod
+  steer:     {stiffness: 400000, damping: 20000, max_force: 30000}
+  lift:      {stiffness: 5.0e+7, damping: 2.0e+6, max_force: 6.0e+5, rate_deg_s: 15}
+  telescope: {stiffness: 5.0e+6, damping: 2.0e+5, max_force: 2.5e+5, rate_m_s: 0.4}
+  tilt:      {stiffness: 5.0e+6, damping: 2.0e+5, max_force: 2.0e+5, rate_deg_s: 50}
+  clamp:     {stiffness: 2.0e+5, damping: 1.5e+4, rate_m_s: 0.25}   # max_force from description.clamp
+  cylinder:  {stiffness: 2.0e+4, damping: 1.0e+3, max_force: 1.0e+4}
+  rear_axle: {damping: 8000}
+
+sensors:
+  # ZED X (2.2 mm lens), rectified images as the ZED ROS 2 wrapper publishes them: HD1200 grabbed,
+  # published downscaled by its default pub_downscale_factor 2 -> 960x600. For full HD1200 set
+  # resolution [1920, 1200] and fx 735 (costs ~20 % sim speed: four images through ROS per tick).
+  zed:
+    resolution: [960, 600]
+    fx: 367.5
+    baseline_m: 0.12
+    rate_hz: 15
+    depth: true              # /<name>/zed_node/depth/depth_registered from the left camera
+  ouster:
+    config: OS1
+    variant: OS1_REV7_128ch10hz1024res
+  # IMUs publish once per rendered frame.
+
+ros:
+  odom_topic: /odom
+  odom_frame: odom
+  base_frame: base_link
+  joint_states_topic: /joint_states
+  cmd_vel_topic: /cmd_vel                  # geometry_msgs/Twist: linear.x [m/s], angular.z [rad/s]
+  cmd_timeout_s: 0.5
+  # sensor_msgs/JointState with any of the names boom_lift [rad], telescope [m, both stages],
+  # tool_tilt [rad, levelled], clamp [m, pad opening]; position = target, velocity = rate.
+  implement_cmd_topic: /telehandler/implement_cmd
+  steering_mode_topic: /telehandler/steering_mode   # std_msgs/String: front | all_wheel | crab

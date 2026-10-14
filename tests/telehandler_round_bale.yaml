@@ -1,0 +1,20 @@
+# Pick the straw round bale round_straw_1 (axis along y, at x 9 / y -5) by its flat ends, using
+# crab steering to line up, lift and roll it back with the levelled carriage, set it down.
+#   python scripts/run_telehandler.py --headless --no-ros --no-sensors --no-viewport --script tests/telehandler_round_bale.yaml
+- implement: {clamp: 1.6, boom_lift: 0, tool_tilt: 0}
+- drive: {speed: -1.5, distance: 4.0}             # room for the arms to clear the bale ends
+- steering_mode: crab
+- drive: {speed: 1.5, distance: 8.72, steer: -35}  # 5.0 m to the right, 7.1 m forward
+- steering_mode: front
+- drive: {speed: 0.8, distance: 1.76}              # pads centred on the bale ends
+- implement: {clamp: 0.9}
+- implement: {boom_lift: 25}
+- implement: {tool_tilt: 20}
+- wait: 1.0
+- check: {object: round_straw_1, min_z: 2.0}
+- implement: {tool_tilt: 0}
+- implement: {boom_lift: 0}
+- implement: {clamp: 1.6}
+- drive: {speed: -1.0, distance: 2.0}
+- wait: 1.0
+- check: {object: round_straw_1, min_z: 0.70, max_z: 0.80}   # back on the ground

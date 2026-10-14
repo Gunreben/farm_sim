@@ -62,7 +62,7 @@ def _label(prim: Usd.Prim, cls: str) -> None:
     add_labels(prim, labels=[cls], taxonomy="class")
 
 
-def setup_physics(stage, physics_hz: float = 60.0) -> str:
+def setup_physics(stage, physics_hz: float = 60.0, gpu_dynamics: bool = False) -> str:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     UsdPhysics.SetStageKilogramsPerUnit(stage, 1.0)
@@ -71,6 +71,9 @@ def setup_physics(stage, physics_hz: float = 60.0) -> str:
     scene.CreateGravityMagnitudeAttr(9.81)
     physx_scene = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
     physx_scene.CreateTimeStepsPerSecondAttr(int(physics_hz))
+    # Isaac defaults to GPU dynamics; for a handful of bodies its per-step launch overhead dominates.
+    physx_scene.CreateEnableGPUDynamicsAttr(gpu_dynamics)
+    physx_scene.CreateBroadphaseTypeAttr("GPU" if gpu_dynamics else "MBP")
     ctx = PhysxSchema.PhysxVehicleContextAPI.Apply(scene.GetPrim())
     ctx.CreateUpdateModeAttr(PhysxSchema.Tokens.velocityChange)
     ctx.CreateVerticalAxisAttr(PhysxSchema.Tokens.posZ)

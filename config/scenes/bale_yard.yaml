@@ -1,0 +1,40 @@
+# Telehandler test yard: gravel pad with things to pick up with the bale clamp and a platform
+# to stack them on. World frame: x east, y north, z up; the telehandler starts at the origin
+# facing +x. Poses: [x, y, yaw_deg]; sizes in metres, masses in kg.
+#
+# Object types (all dynamic rigid bodies unless static: true):
+#   round_bale   cylinder; axis: horizontal (lying, axis along yaw+90) or vertical (standing)
+#   square_bale  box [length, width, height], straw texture
+#   pallet_box   euro pallet + wooden crate, one rigid body
+#   block        plain box, any colour (IBC, crate, test object)
+# Every object gets the semantic class of its type (bale, pallet_box, block).
+
+sky:
+  hdri: kloppenheim_05            # assets/polyhaven/hdris/<name>.hdr (falls back to NVIDIA's noon sky)
+  sun_elevation_deg: 42
+  sun_azimuth_deg: 150
+ground:
+  pad: {size: [60, 40], center: [12, 0], texture: gravel_ground_01, tile_m: 2.5}
+  surround: {texture: leafy_grass, tile_m: 3.0}
+  friction: 0.8
+
+start: {pose: [0, 0, 0]}
+
+objects:
+  # round bales 1.5 x 1.2 m lying with the axis along y: approached along +x, the pads grip the flat ends
+  - {type: round_bale, name: round_straw_1, pose: [9.0, -5.0, 0], diameter: 1.5, width: 1.2, mass: 320, axis: horizontal, wrap: straw}
+  - {type: round_bale, name: round_straw_2, pose: [9.0, -7.5, 0], diameter: 1.5, width: 1.2, mass: 320, axis: horizontal, wrap: straw}
+  - {type: round_bale, name: round_silage_1, pose: [9.0, -10.0, 0], diameter: 1.45, width: 1.2, mass: 650, axis: horizontal, wrap: silage_white}
+  - {type: round_bale, name: round_silage_2, pose: [12.0, -12.5, 0], diameter: 1.45, width: 1.2, mass: 650, axis: vertical, wrap: silage_green}
+  # big square bales 2.0 x 1.2 x 0.9 m, long side along x: the clamp grips the 1.2 m width
+  - {type: square_bale, name: square_1, pose: [10.0, 0.0, 0], size: [2.0, 1.2, 0.9], mass: 450}
+  - {type: square_bale, name: square_2, pose: [10.0, 3.0, 0], size: [2.0, 1.2, 0.9], mass: 450}
+  - {type: square_bale, name: square_3, pose: [13.5, 1.5, 0], size: [2.0, 1.2, 0.9], mass: 450}
+  # pallet crates 1.2 x 0.8 m footprint (gripped across the 0.8 m side)
+  - {type: pallet_box, name: crate_1, pose: [9.0, 7.0, 0], box_height: 0.75, mass: 220}
+  - {type: pallet_box, name: crate_2, pose: [9.0, 9.5, 0], box_height: 0.75, mass: 220}
+  # IBC-like tank and a small test block
+  - {type: block, name: ibc_1, pose: [13.0, 8.0, 0], size: [1.2, 1.0, 1.15], mass: 120, color: [0.85, 0.86, 0.84]}
+  - {type: block, name: block_1, pose: [6.5, 3.5, 0], size: [0.8, 0.8, 0.6], mass: 80, color: [0.75, 0.12, 0.05]}
+  # stacking platform (static), e.g. a trailer bed at 1.0 m
+  - {type: block, name: platform, pose: [24.0, 0.0, 0], size: [8.0, 2.5, 1.0], color: [0.32, 0.33, 0.35], static: true}

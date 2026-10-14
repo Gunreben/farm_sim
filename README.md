@@ -9,6 +9,9 @@ workspace's `src/` next to them, with a `COLCON_IGNORE` (it runs in Isaac's Pyth
   the real calibration, everything on ROS 2 with the real rig's topic names.
 - **Phase 2:** a procedural German wheat field (one YAML, one seed) and a scenario system with animated
   people, animals, vehicles and obstacles.
+- **Telehandler:** a second simulation for telehandler automation: Claas Scorpion 1033 (from the FS25 mod,
+  as a URDF in [`scorpion1033_description`](../scorpion1033_description)) with a bale clamp, two ZED X and
+  two Ouster OS1-128, in a yard with bales and crates to pick up. See [Telehandler](#telehandler-claas-scorpion-1033).
 
 | Ripe wheat (July), people in the tramline | Young wheat (April), deer in the field |
 |---|---|
@@ -54,6 +57,7 @@ python scripts/run_sim.py --stream              # headless + WebRTC; connect wit
 python scripts/run_sim.py --headless --no-viewport   # sensors + ROS only
 python scripts/run_sim.py --headless --no-sensors --no-ros --drive-test out/drive_test.csv
 python scripts/run_sim.py --calibration kalibr --rebuild-robot   # other extrinsics set
+python scripts/run_sim.py --gpu-physics          # PhysX GPU dynamics instead of the CPU solver (slower here)
 python scripts/run_sim.py --field config/fields/wheat_ripe_de.yaml  # field without actors
 python scripts/run_sim.py --headless --no-sensors --no-ros --scenario config/scenarios/wheat_demo.yaml \
     --autodrive 7 --duration 62 --record out/rec --record-view chase     # demo video frames
@@ -105,6 +109,9 @@ Measured (RTX PRO 6000, field + scenario + 7 cameras + lidar + ROS + GT boxes): 
 the default `--render-hz 30` (physics 60 Hz, two substeps per rendered frame), 0.56x with
 `--render-hz 60`; 0.98x without people (their navmesh queries cost ~10 %). Cameras 15 Hz and lidar
 10 Hz stay exact in sim time; IMUs and odometry publish once per rendered frame (30 Hz).
+Those numbers predate the switch to the CPU physics solver, which is faster again: in paired runs
+(same command, alternating, machine shared with other GPU work) it beat `--gpu-physics` every time,
+0.61x vs 0.41x with sensors and 1.32x/1.44x vs 0.69x/1.05x unpaced with `--no-sensors`.
 
 ## Ground truth (sim only)
 
@@ -160,9 +167,100 @@ traction limit (62 kN) and engine power (174 kW), active standstill, shuttle thr
 All parameters are in `config/vario724.yaml`; values marked "estimate" there are spec-sheet
 numbers or guesses, not measurements.
 
-Scripted manoeuvre results (`--drive-test`): rest height of `base_link` 0.259 m (URDF: 0.258 m),
-cruise 21.4 ± 0.7 km/h at a 21.6 km/h setpoint, full-lock circle 3.34 m `base_link` radius at 7 km/h
-(Ackermann geometry: 3.27 m), SPACE stops from 7.2 km/h in 0.45 s / 0.43 m, reverse holds its setpoint.
+Scripted manoeuvre results (`--drive-test`): rest height of `base_link` 0.258 m (URDF: 0.258 m),
+cruise 21.5 ± 0.7 km/h at a 21.6 km/h setpoint, full-lock circle 3.34 m `base_link` radius at 7.3 km/h
+(Ackermann geometry: 3.27 m), SPACE stops from 7.4 km/h in 0.57 s / 0.45 m, reverse holds its setpoint.
+CPU and GPU solver agree to 4 cm over the whole 52 s run; each is deterministic run to run.
+
+## Telehandler (Claas Scorpion 1033)
+
+![Scorpion 1033 putting a square bale on the platform; front and tool ZED X views](docs/images/telehandler.webp)
+
+```bash
+cd ~/ros2_ws/src/farm_sim
+python3 tools/build_scorpion1033_description.py   # once (and after editing the description part of the config)
+source scripts/isaac_env.sh
+python scripts/run_telehandler.py                  # GUI; click the viewport, then drive (H: keys)
+python scripts/run_telehandler.py --headless --no-viewport   # sensors + ROS only
+```
+
+On the host (TF for all links from the URDF; build the package once):
+
+```bash
+source /opt/ros/lyrical/setup.bash
+cd ~/ros2_ws && colcon build --packages-select scorpion1033_description --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
+source install/setup.bash
+export FASTDDS_DEFAULT_PROFILES_FILE=~/ros2_ws/src/farm_sim/config/fastdds_large_msgs.xml
+ros2 launch scorpion1033_description description.launch.py      # robot_state_publisher, sim time
+python3 src/farm_sim/tests/check_telehandler_topics.py --command  # rates, frames, images, ROS control
+```
+
+| Keys (viewport focused) | |
+|---|---|
+| W / S | drive forward / reverse while held (hydrostatic: release and it slows to a stop); SPACE brakes |
+| A / D | steer (stays where it is), C centres, M cycles the steering mode: front, all-wheel, crab |
+| UP / DOWN | boom up / down (0-60 deg, 15 deg/s) |
+| RIGHT / LEFT | telescope out / in (two stages, 0-6 m, 0.4 m/s each) |
+| Q / E | carriage tilt back / forward (levelled against the boom like the real compensation cylinder; L toggles) |
+| X / Z | clamp open / close (0.6-2.1 m, force-limited) |
+| V | view: chase, cab, side, tool (follows the carriage), free camera |
+| R / H | reset / print keys |
+
+**Model.** `tools/build_scorpion1033_description.py` decrypts the mod's `.i3d.shapes` (FS25 is file version
+10; `farm_sim/i3d.py`), splits its merged mesh by bone into URDF links and writes the
+`scorpion1033_description` package: chassis, pendulum rear axle (±8°), four steered knuckles (±35°),
+wheels (460/70 R24, generated: the mod loads its tyres from the game), boom lift (0-60°), two telescope
+stages, carriage tilt, the three hydraulic cylinders (lift, compensation, tilt) and the bale clamp
+(two prismatic arms with rubber pads; the mod only has the quick hitch). Collision hulls are the mod's own.
+Paint colours come from the mod's materials, CLAAS decals from its textures. In Isaac it becomes one
+PhysX articulation (`farm_sim/telehandler/builder.py`): wheels are velocity-driven per wheel (Ackermann
+angle and path speed for each steering mode), the hydraulics are rate-limited position drives with the
+mod's speeds, the clamp is force-limited (12 kN per arm), and the cylinders follow the boom kinematically
+(they are closed loops, which URDF cannot express; their joint values are computed and published).
+Objects are held by friction only. Everything is in `config/scorpion1033.yaml`; masses are the mod's
+7.4 t split by estimate.
+
+**Scene.** `config/scenes/bale_yard.yaml`: gravel pad, straw and silage round bales, big square bales,
+pallet crates, an IBC, a block and a 1 m platform to stack on (all dynamic rigid bodies with mass and
+friction, semantic classes `bale`, `pallet_box`, `block`). `config/scenes/empty.yaml` for driving tests.
+
+| Topic | Type | Frame | Rate |
+|---|---|---|---|
+| `/zed_front/zed_node/{left,right}/image_rect_color`, `.../camera_info` | Image (960x600 rgb8), CameraInfo | `zed_front_{left,right}_camera_optical_frame` | 15 Hz |
+| `/zed_front/zed_node/depth/depth_registered` | Image 32FC1 [m], registered to left | `zed_front_left_camera_optical_frame` | 15 Hz |
+| `/zed_front/zed_node/imu/data` | Imu | `zed_front_imu_link` | per frame (30 Hz) |
+| `/zed_tool/zed_node/...` | same for the ZED X above the clamp | `zed_tool_*` | |
+| `/ouster_cab/points`, `/ouster_rear/points` | PointCloud2 x/y/z/intensity/timestamp/channel_id, full sweeps | `ouster_{cab,rear}_os_lidar` | 10 Hz |
+| `/ouster_cab/imu`, `/ouster_rear/imu` | Imu | `ouster_{cab,rear}_os_imu` | per frame |
+| `/joint_states` | JointState, all 21 joints (incl. cylinders) | | per frame |
+| `/odom`, `/tf` (`odom -> base_link`), `/clock` | | | per frame |
+| `/telehandler/state` | JointState: boom_lift [rad], telescope [m], tool_tilt [rad, levelled], clamp [m], speed, steer | | per frame |
+
+Commands: `/cmd_vel` (Twist: linear.x m/s, angular.z rad/s, converted with the current steering mode;
+stops 0.5 s after the last message), `/telehandler/implement_cmd` (JointState with any of `boom_lift`,
+`telescope`, `tool_tilt`, `clamp`: `position` = target, `velocity` = rate), `/telehandler/steering_mode`
+(String `front | all_wheel | crab`). Keyboard and ROS can be mixed; a key cancels a ROS position goal.
+
+Sensor mounts (`description.zed` / `description.ouster` in the config): `zed_front` on the front edge of
+the cab roof, 25° down (sees the clamp past the boom); `zed_tool` on the carriage above the clamp, 30° down
+between the pads (moves with boom and tilt); `ouster_cab` on the cab roof behind the beacon mast;
+`ouster_rear` on the counterweight. ZED images are pinhole-rectified at the ZED wrapper's default
+published size (HD1200 downscaled by 2); the right `camera_info` carries the 120 mm baseline in P.
+`os_lidar` is yawed 180° from `os_sensor` like the Ouster driver's frames; the sim checks the asset's beam
+origin against the URDF at startup.
+
+**Tests** (headless, `--no-ros --no-sensors`, ~8x real time):
+
+| Script | Result |
+|---|---|
+| `tests/telehandler_pick_place.yaml` | drive 5.6 m (5.61 m driven, 1 cm lateral drift), clamp the 450 kg square bale, lift, carry 11.5 m at 9 km/h, set it on the 1 m platform: 3/3 checks |
+| `tests/telehandler_round_bale.yaml` | crab to the round bale, grip it by the flat ends, lift to 3.2 m and roll back 20°, set down: 2/2 |
+| `tests/telehandler_reach.yaml` | 60°, 6 m: carriage pivot at 9.9 m (mod: 10 m lift height), tilt limits, back on the wheels: 3/3 |
+| `tests/telehandler_steering.yaml` (`--log`) | 20° at 2 m/s: front R 8.07 m (geometry 7.94), all-wheel 3.96 m (3.91), crab 20.0° course at zero yaw rate |
+
+Speed: physics 120 Hz on the CPU solver, render 30 Hz. All sensors + ROS: ~0.75x real time (full HD1200
+ZED: ~0.6x; the four ZED images through ROS are the main cost, rendering alone runs 1.6x); without
+sensors ~8x.
 
 ## Layout
 
@@ -179,6 +277,19 @@ farm_sim/vario_drive.py       keyboard -> Vario CVT/steering model -> PhysX cont
 scripts/run_sim.py            entry point
 scripts/rig_tf.sh             robot_state_publisher for the rig TF (host side)
 tests/check_topics.py         host-side check of every topic
+
+config/scorpion1033.yaml      telehandler: description (mod, clamp, sensor mounts), drives, sensors, topics
+config/scenes/*.yaml          telehandler yards (objects to pick up)
+farm_sim/i3d.py               GIANTS i3d/.i3d.shapes reader (FS19-FS25: cipher, shapes, scene graph, skinning)
+tools/build_scorpion1033_description.py  FS25 mod -> scorpion1033_description (URDF, meshes, textures)
+farm_sim/urdf_model.py        URDF reader with moving joints and primitives
+farm_sim/telehandler/builder.py  URDF -> PhysX articulation USD (assets/robot/scorpion1033.usd)
+farm_sim/telehandler/control.py  keyboard + ROS -> wheels, steering modes, hydraulics, clamp, cylinders
+farm_sim/telehandler/rig.py   ZED X / Ouster OS1 / IMUs + ROS graphs
+farm_sim/telehandler/yard.py  scene: ground, sky, bales, crates, platform
+farm_sim/telehandler/script.py   step scripts for headless tests (tests/telehandler_*.yaml)
+scripts/run_telehandler.py    entry point
+tests/check_telehandler_topics.py  host-side check of every topic + ROS control
 ```
 
 ## Environment notes
@@ -197,6 +308,13 @@ tests/check_topics.py         host-side check of every topic
 - RTX's `opencvFisheye` lens model crops the image to a circle of radius W/2. The ArkCams use
   `kannalaBrandtK3`, which is the same model and fills the frame.
 - The CPU governor is on `powersave` (Kit warns about it). `performance` gives more headroom.
+- Isaac enables GPU dynamics by default. For one articulation and a few bodies its launch overhead costs
+  ~4.5 ms per physics step; the CPU solver needs 0.34 ms. `world.setup_physics` therefore selects the
+  CPU solver (+ MBP broadphase) for both sims. The Vario (raycast wheels on the terrain mesh) is faster on it too and drives the same
+  (`run_sim.py --gpu-physics` to compare).
+- FS `.i3d.shapes` are obfuscated with a seed-indexed stream cipher (same since FS19). File version 10
+  (FS25) adds one uint32 after the shape options and a uint16 per subset; merged meshes store each
+  part's vertices in its bone's frame (single blend index), which is what lets the mesh split into links.
 
 ## Phase 2 environment notes (things that cost time to find)
 
@@ -229,3 +347,8 @@ tests/check_topics.py         host-side check of every topic
 - IMUs publish once per rendered frame (30 Hz; `--render-hz 60` for 60 Hz), not 100/200 Hz.
 - 2D ground-truth boxes are projected 3D boxes (people: 0.6 x 0.4 m x agent height), not pixel-tight
   masks; the visibility score is a depth-test estimate.
+- Telehandler: the clamp is a generic design (the mod has none); the tyres are generated (the mod uses the
+  game's shared wheels, as for lights, hoses and decals from the game's data, which are left out). Wheels
+  are rigid cylinders (no tyre deflection or slip model beyond Coulomb friction), there is no engine or
+  hydraulic flow model (rates are fixed), and masses/inertias are estimates. The ZED depth is perfect
+  rendered depth to ~500 m (the real camera is noisy and limited to ~20 m); no ZED point cloud topic yet.

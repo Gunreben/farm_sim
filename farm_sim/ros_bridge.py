@@ -120,7 +120,8 @@ def patch_camera_info() -> None:
         ci.distortion_model, ci.d = model.Get(), d
         ci.k = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
         ci.r = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-        ci.p = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
+        tx = prim.GetAttribute("farm_sim:cameraInfo:tx")  # stereo right camera: -fx * baseline
+        ci.p = [fx, 0.0, cx, float(tx.Get()) if tx and tx.HasAuthoredValue() else 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
         return ci, prim
 
     read_camera_info.__wrapped__ = original
