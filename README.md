@@ -62,7 +62,17 @@ python scripts/run_sim.py --field config/fields/wheat_ripe_de.yaml  # field with
 python scripts/run_sim.py --headless --no-sensors --no-ros --scenario config/scenarios/wheat_demo.yaml \
     --autodrive 7 --duration 62 --record out/rec --record-view chase     # demo video frames
 python3 tools/make_video.py out/rec out/demo.mp4                        # H.264 (host python)
+python scripts/run_sim.py --headless --no-sensors --no-ros --scenario config/scenarios/wheat_demo.yaml \
+    --field config/fields/wheat_ripe_de.yaml --autodrive 7 --cinematic config/cinematic/flyaround.yaml \
+    --record out/cine --record-view cinematic --record-fps 25 --render-hz 25 --record-start 4 --duration 25.1
 ```
+
+`--cinematic YAML` adds a keyframed camera (`farm_sim/cinematic.py`) that flies around the moving
+tractor: keyframes in the tractor frame (position, look-at point, focal length), Catmull-Rom
+interpolated, heading/height low-pass filtered so the shot doesn't shake. It is the first view (V)
+and recordable as `--record-view cinematic`; `config/cinematic/flyaround.yaml` is a 20 s move (low
+in the wheat ahead, sweep along the side, crane up behind to a field reveal). `--record-start`
+skips the frames before the move starts.
 
 `--autodrive KMH` cruises and keeps to the tramline it started on (proportional lane keeping).
 
@@ -274,6 +284,7 @@ farm_sim/world.py             physics scene, ground, sky, test field
 farm_sim/sensors.py           RTX lidar/cameras + IMUs on the URDF frames
 farm_sim/ros_bridge.py        ROS 2 graphs
 farm_sim/vario_drive.py       keyboard -> Vario CVT/steering model -> PhysX controller
+farm_sim/cinematic.py         keyframed fly-around camera for recordings (config/cinematic/*.yaml)
 scripts/run_sim.py            entry point
 scripts/rig_tf.sh             robot_state_publisher for the rig TF (host side)
 tests/check_topics.py         host-side check of every topic

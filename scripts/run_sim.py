@@ -43,6 +43,9 @@ parser.add_argument("--autodrive", type=float, default=0.0, metavar="KMH",
 parser.add_argument("--record", default=None, metavar="DIR", help="save frames of --record-view for a video")
 parser.add_argument("--record-view", default="chase", help="chase | cab | side | any camera prim path")
 parser.add_argument("--record-fps", type=float, default=20.0)
+parser.add_argument("--record-start", type=float, default=1.0, help="sim s at which recording starts")
+parser.add_argument("--cinematic", default=None, metavar="YAML",
+                    help="keyframed fly-around camera (config/cinematic/*.yaml); view/record it as 'cinematic'")
 parser.add_argument("--python-server", action="store_true", help="enable Kit's loopback Python server (debugging)")
 args = parser.parse_args()
 
@@ -180,8 +183,17 @@ if scene is not None:
 drive = VarioDrive(stage, robot, cfg)
 timeline = omni.timeline.get_timeline_interface()
 
+cinematic = None
+if args.cinematic:
+    from farm_sim.cinematic import CinematicCamera
+
+    with open(args.cinematic) as f:
+        cinematic = CinematicCamera(stage, drive, yaml.safe_load(f))
+
 # --- operator views
 VIEWS = [f"{robot}/views/chase", f"{robot}/views/cab", f"{robot}/views/side", "/OmniverseKit_Persp"]
+if cinematic is not None:
+    VIEWS.insert(0, cinematic.path)
 view_idx = 0
 
 
@@ -254,7 +266,10 @@ if args.record:
     from PIL import Image
 
     os.makedirs(args.record, exist_ok=True)
-    rec_cam = args.record_view if args.record_view.startswith("/") else f"{robot}/views/{args.record_view}"
+    if args.record_view == "cinematic" and cinematic is not None:
+        rec_cam = cinematic.path
+    else:
+        rec_cam = args.record_view if args.record_view.startswith("/") else f"{robot}/views/{args.record_view}"
     rec_rp = rep.create.render_product(rec_cam, (1920, 1080))
     recorder = rep.AnnotatorRegistry.get_annotator("rgb")
     recorder.attach([rec_rp])
@@ -281,6 +296,8 @@ while app.is_running():
             # steer > 0 turns left (towards -X): correct lateral offset and heading
             drive.autopilot_steer = 0.15 * (pose[0] - autodrive_x0) + 1.2 * pose[2]
     drive.step(dt)
+    if cinematic is not None:
+        cinematic.update(sim_t, dt)
     if scene is not None:
         scene.animate(stage, sim_t)
     if scenario is not None:
@@ -299,7 +316,7 @@ while app.is_running():
     step_i += 1
     if rtf_t0 is None and sim_t >= 2.0:  # after loading and the first warm-up frames
         rtf_t0, rtf_wall0, slept = sim_t, time.perf_counter(), 0.0
-    if recorder is not None and step_i % rec_every == 0 and sim_t > 1.0:
+    if recorder is not None and step_i % rec_every == 0 and sim_t > args.record_start:
         data = recorder.get_data()
         if data is not None and len(data):
             Image.fromarray(data[..., :3]).save(os.path.join(args.record, f"{rec_frame:05d}.jpg"), quality=92)
