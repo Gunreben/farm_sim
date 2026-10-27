@@ -74,6 +74,29 @@ and recordable as `--record-view cinematic`; `config/cinematic/flyaround.yaml` i
 in the wheat ahead, sweep along the side, crane up behind to a field reveal). `--record-start`
 skips the frames before the move starts.
 
+One move in several variants, cut together (presentation shot: young wheat -> ripe wheat ->
+lidar, `config/cinematic/descend.yaml`, crane down from drone height to low in front):
+
+```bash
+# same move, same seed and --autodrive -> frame k is the same moment in every run
+for f in young ripe; do python scripts/run_sim.py --headless --no-sensors --no-ros \
+    --field config/fields/wheat_${f}_de.yaml --scenario config/scenarios/wheat_demo.yaml --autodrive 7 \
+    --cinematic config/cinematic/descend.yaml --record out/desc_$f --record-view cinematic \
+    --record-fps 25 --render-hz 25 --record-start 4 --duration 19.2 --cinematic-log out/desc_$f.json; done
+python scripts/run_sim.py --headless --no-ros --field config/fields/wheat_ripe_de.yaml \
+    --scenario config/scenarios/wheat_demo.yaml --autodrive 7 --cinematic config/cinematic/descend.yaml \
+    --render-hz 25 --record-start 4 --duration 19.2 --record-lidar out/desc_lidar_pts \
+    --cinematic-log out/desc_lidar.json
+python3 tools/compose_cinematic.py -o out/desc_composed --rgb out/desc_young --rgb out/desc_ripe \
+    --lidar out/desc_lidar_pts:out/desc_lidar.json:out/desc_ripe --cuts 5 10   # host python
+```
+
+`--cinematic-log` writes the camera pose per step, `--record-lidar` every full Ouster sweep
+(sensor-frame xyz + lidar world pose, in-process, no ROS); `tools/compose_cinematic.py` projects
+the last six sweeps through the logged camera (range colours over the darkened RGB of a base run)
+and switches between the variants with soft wipes. The three runs were checked to give identical
+camera paths.
+
 `--autodrive KMH` cruises and keeps to the tramline it started on (proportional lane keeping).
 
 The WebRTC signalling port listens on all interfaces, so anyone on the network can connect and drive.
@@ -285,6 +308,8 @@ farm_sim/sensors.py           RTX lidar/cameras + IMUs on the URDF frames
 farm_sim/ros_bridge.py        ROS 2 graphs
 farm_sim/vario_drive.py       keyboard -> Vario CVT/steering model -> PhysX controller
 farm_sim/cinematic.py         keyframed fly-around camera for recordings (config/cinematic/*.yaml)
+farm_sim/lidar_recorder.py    --record-lidar: Ouster sweeps to .npz without ROS
+tools/compose_cinematic.py    cut variants of one cinematic move (wipes, lidar view from the logged camera)
 scripts/run_sim.py            entry point
 scripts/rig_tf.sh             robot_state_publisher for the rig TF (host side)
 tests/check_topics.py         host-side check of every topic

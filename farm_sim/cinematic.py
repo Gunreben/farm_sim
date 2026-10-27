@@ -15,10 +15,11 @@ corrections don't shake the shot.
         - ...
 """
 
+import json
 import math
 
 import numpy as np
-from pxr import Gf, UsdGeom
+from pxr import Gf, Usd, UsdGeom
 
 
 def _catmull_rom(p0, p1, p2, p3, u):
@@ -28,8 +29,13 @@ def _catmull_rom(p0, p1, p2, p3, u):
 
 
 class CinematicCamera:
-    def __init__(self, stage, drive, spec, path="/World/CinematicCam"):
+    def __init__(self, stage, drive, spec, path="/World/CinematicCam", log_prims=()):
         self.drive = drive
+        self.stage = stage
+        # pose log (sim_t, camera matrix, focal, world poses of log_prims) for offline
+        # renders from the same viewpoint, e.g. the lidar point cloud
+        self.log_prims = list(log_prims)
+        self.log = []
         self.start = float(spec.get("start", 3.0))
         self.tau = float(spec.get("filter_s", 0.8))
         kf = sorted(spec["keyframes"], key=lambda k: k["t"])
@@ -97,4 +103,17 @@ class CinematicCamera:
                         -f[0], -f[1], -f[2], 0.0,
                         eye[0], eye[1], eye[2], 1.0)
         self.xform.Set(m)
-        self.cam.GetFocalLengthAttr().Set(float(np.interp(tt, self.t, self.focal)))
+        focal = float(np.interp(tt, self.t, self.focal))
+        self.cam.GetFocalLengthAttr().Set(focal)
+        entry = {"t": round(sim_t, 5), "eye": eye.tolist(), "right": r.tolist(), "up": u.tolist(),
+                 "fwd": f.tolist(), "focal_mm": focal, "aperture_mm": [36.0, 20.25]}
+        for p in self.log_prims:
+            prim = self.stage.GetPrimAtPath(p)
+            if prim.IsValid():
+                M = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+                entry[p] = [[M[i][j] for j in range(4)] for i in range(4)]   # row-vector convention
+        self.log.append(entry)
+
+    def save_log(self, path):
+        with open(path, "w") as f:
+            json.dump(self.log, f)

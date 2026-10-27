@@ -46,6 +46,11 @@ parser.add_argument("--record-fps", type=float, default=20.0)
 parser.add_argument("--record-start", type=float, default=1.0, help="sim s at which recording starts")
 parser.add_argument("--cinematic", default=None, metavar="YAML",
                     help="keyframed fly-around camera (config/cinematic/*.yaml); view/record it as 'cinematic'")
+parser.add_argument("--record-lidar", default=None, metavar="DIR",
+                    help="save every full Ouster sweep (sensor-frame xyz + lidar world pose, sim time) as .npz; "
+                         "needs sensors, works without ROS")
+parser.add_argument("--cinematic-log", default=None, metavar="JSON",
+                    help="write the cinematic camera pose (+ os_lidar world pose) of every step")
 parser.add_argument("--python-server", action="store_true", help="enable Kit's loopback Python server (debugging)")
 args = parser.parse_args()
 
@@ -180,6 +185,12 @@ while time.time() - t0 < 120:
 if scene is not None:
     scene.refresh_render(stage, app)
 
+lidar_rec = None
+if args.record_lidar and rig is not None:
+    from farm_sim.lidar_recorder import LidarRecorder
+
+    lidar_rec = LidarRecorder(stage, rig.lidar_prim, args.record_lidar)
+
 drive = VarioDrive(stage, robot, cfg)
 timeline = omni.timeline.get_timeline_interface()
 
@@ -188,7 +199,8 @@ if args.cinematic:
     from farm_sim.cinematic import CinematicCamera
 
     with open(args.cinematic) as f:
-        cinematic = CinematicCamera(stage, drive, yaml.safe_load(f))
+        cinematic = CinematicCamera(stage, drive, yaml.safe_load(f),
+                                    log_prims=[f"{robot}/frames/os_lidar"])
 
 # --- operator views
 VIEWS = [f"{robot}/views/chase", f"{robot}/views/cab", f"{robot}/views/side", "/OmniverseKit_Persp"]
@@ -316,10 +328,14 @@ while app.is_running():
     step_i += 1
     if rtf_t0 is None and sim_t >= 2.0:  # after loading and the first warm-up frames
         rtf_t0, rtf_wall0, slept = sim_t, time.perf_counter(), 0.0
+    if lidar_rec is not None and sim_t > args.record_start - 0.5:
+        lidar_rec.step(sim_t)
     if recorder is not None and step_i % rec_every == 0 and sim_t > args.record_start:
         data = recorder.get_data()
         if data is not None and len(data):
             Image.fromarray(data[..., :3]).save(os.path.join(args.record, f"{rec_frame:05d}.jpg"), quality=92)
+            with open(os.path.join(args.record, "frames.txt"), "a") as ft:
+                ft.write(f"{rec_frame} {sim_t:.5f}\n")
             rec_frame += 1
     if sim_t >= next_print:
         next_print = sim_t + 1.0
@@ -342,5 +358,7 @@ if rtf_t0 is not None and sim_t > rtf_t0:
           f"({(sim_t - rtf_t0) / (wall - slept):.2f}x unpaced)", flush=True)
 if log is not None:
     log.close()
+if cinematic is not None and args.cinematic_log:
+    cinematic.save_log(args.cinematic_log)
 timeline.stop()
 app.close()
